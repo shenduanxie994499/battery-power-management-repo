@@ -1,5 +1,6 @@
 import cvxpy as cp
 from abc import ABC, abstractmethod
+import numpy as np
 
 class ULPTechnique(ABC):
     """
@@ -87,3 +88,31 @@ Notes/Questions:
     We are optimizing for battery life?
     - Will P_dynamic and P_static be given or I_dynamic and I_static?
 """
+
+class powerGating(ULPTechnique):
+    """
+    Crude implementation of power gating of a circuit block. 
+    Uses the subthreshold current equation from "Energy optimality and variability in subthreshold design" (Hanson et al), 
+    which requires a lot of information of the transistor/circuit block.
+    Missing implementation of power and delay penalty during wake-up of the block.
+    """
+    def __init__(self,
+                 V_gs: float,   # Gate to source voltage
+                 W: float,      # Width of device
+                 L: float,      # Length of device
+                 mu_eff: float, # Effective mobility
+                 C_ox: float,   # Oxide capacitance of grid
+                 m: float,      # Slope coefficient of the current below sub-threshold,
+                 v_T: float,    # Thermal voltage kT/q
+                 V_th: float,   # Threshold voltage
+                 V_ds: float    # Drain to source voltage
+                 ):
+        super().__init__()
+        self.I = (W/L) * mu_eff * C_ox * (m-1) * np.power(v_T, 2) * np.exp((V_gs - V_th) / (m * v_T)) * (1 - np.exp(-V_ds / v_T))
+
+    def constraints(self):
+        return super().constraints()
+
+    def get_IDCT(self):
+        # feed the **fixed** I_peak + your DC & T into Shen’s pulse model:
+        return self.I, self.DC, self.T
