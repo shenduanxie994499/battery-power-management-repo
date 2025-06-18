@@ -108,7 +108,7 @@ class powerGating(ULPTechnique):
                  V_ds: float    # Drain to source voltage
                  ):
         super().__init__()
-        self.I = (W/L) * mu_eff * C_ox * (m-1) * np.power(v_T, 2) * np.exp((V_gs - V_th) / (m * v_T)) * (1 - np.exp(-V_ds / v_T))
+        self.I = (W/L) * mu_eff * C_ox * (m-1) * np.power(v_T, 2) * np.exp((V_gs - V_th) / (m * v_T)) * (1 - np.exp(-V_ds / v_T)) # Equivalent to subthreshold leakage current
 
     def constraints(self):
         return super().constraints()
@@ -116,3 +116,35 @@ class powerGating(ULPTechnique):
     def get_IDCT(self):
         # feed the **fixed** I_peak + your DC & T into Shen’s pulse model:
         return self.I, self.DC, self.T
+    
+class clockGating(ULPTechnique):
+    """
+    Crude implementation of clock gating of a circuit block.
+    Takes into account subthrehsold leakage current and static power assumed to be given (unlike power gating, V_dd and GND is still connected in clock gated blocks).
+    Missing implementation of power and delay penalty during wake-up of the block.
+    """
+    def __init__(self,
+                 V_gs: float,   # Gate to source voltage
+                 W: float,      # Width of device
+                 L: float,      # Length of device
+                 mu_eff: float, # Effective mobility
+                 C_ox: float,   # Oxide capacitance of grid
+                 m: float,      # Slope coefficient of the current below sub-threshold,
+                 v_T: float,    # Thermal voltage kT/q
+                 V_th: float,   # Threshold voltage
+                 V_ds: float,   # Drain to source voltage
+                 P_stat: float, # Static Power
+                 V_dd: float    # Power supply voltage
+                 ):
+        super().__init__()
+        self.I_sub = (W/L) * mu_eff * C_ox * (m-1) * np.power(v_T, 2) * np.exp((V_gs - V_th) / (m * v_T)) * (1 - np.exp(-V_ds / v_T))
+        self.I_idle = P_stat / V_dd
+        self.I = self.I_sub + self.I_idle
+    
+    def constraints(self):
+        return super().constraints()
+
+    def get_IDCT(self):
+        # feed the **fixed** I_peak + your DC & T into Shen’s pulse model:
+        return self.I, self.DC, self.T
+
