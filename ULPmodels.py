@@ -149,9 +149,26 @@ class DVFS(ULPTechnique):
     Phase 4: Transmission of data
     Phase 5: Idle
     Phase 1 and 4 can have lower frequency/voltage. Phase 2 and 3 should have higher frequency and voltage to finish the task. Phase 5 should have lowest freq./voltage.
+    For now, the user sets the voltage and frequency limits. In the future, perhaps the class can integrate the freq./volt. limits internally.
     """
     def __init__(self,
                  phase: int,
-                 ):
+                 P_dyn: float,
+                 P_stat: float,
+                 P_sc: float,
+                 V_dd: float,
+                 f_clock: float,
+                 perf_ips: float):
         super().__init__()
-        pass
+        self.I = (P_dyn + P_stat + P_sc) / V_dd
+        self._perf_cons = [
+            self.DC * f_clock >= perf_ips
+        ]
+
+    def constraints(self):
+        return super().constraints()
+
+    def get_IDCT(self):
+        # feed the **fixed** I_peak + your DC & T into Shen’s pulse model:
+        return self.I, self.DC, self.T
+    
