@@ -81,14 +81,6 @@ class VDDTuning(ULPTechnique):
     def constraints(self):
         return super().constraints()
 
-"""
-Notes/Questions:
-    - We need constraints for ensuring performance doesn't drop right?
-    - Dynamic and static power is given. To clarify, we aren't actually trying to optimize for power right?
-    We are optimizing for battery life?
-    - Will P_dynamic and P_static be given or I_dynamic and I_static?
-"""
-
 class powerGating(ULPTechnique):
     """
     Crude implementation of power gating of a circuit block. 
@@ -148,3 +140,18 @@ class clockGating(ULPTechnique):
         # feed the **fixed** I_peak + your DC & T into Shen’s pulse model:
         return self.I, self.DC, self.T
 
+class DVFS(ULPTechnique):
+    """
+    Dynamic Voltage and Frequency Scaling. Assume 5 phases:
+    Phase 1: Detection via analog sensors and other peripherals
+    Phase 2: Processing data with processor
+    Phase 3: Computation of data with processor/NN Accelerator
+    Phase 4: Transmission of data
+    Phase 5: Idle
+    Phase 1 and 4 can have lower frequency/voltage. Phase 2 and 3 should have higher frequency and voltage to finish the task. Phase 5 should have lowest freq./voltage.
+    """
+    def __init__(self,
+                 phase: int,
+                 ):
+        super().__init__()
+        pass
