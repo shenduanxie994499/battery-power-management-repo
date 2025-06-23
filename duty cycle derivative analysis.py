@@ -4,6 +4,20 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import curve_fit
 
+# README: In other scripts, we use regression methods to find the mathametical expression
+# for the discharge curve, and find how DC,T,I influence the parameters in the expression.
+# This method is highly dependent on the 'initial guess' of the regression, and can leads to
+# uncontrolable variations.
+# In this script, we use the derivative analysis (section 3.1.2 in thesis) to find a more accuarate
+# expression for the discharge curve. This method find the derivative of the curve, and find 
+# the inflection point where the derivative of the curve changes rather large, meaning the curve
+# enters non-linear region. Then, the curve before the point is described by linear expression
+# and the rest as a combination. This method increase the accuracy of the fitting model for
+# the curve (at least in linear region).
+# The method is in several steps: 1. convert the descrete data sets into a curve by doing 
+# a rough fitting. 2. find the indlection point 3. do an accuarate fitting as step functions
+# refer to section 3.1
+
 # Define the fitting function
 def voltage_model(capacity, a, b, c, d, e):
     return a * capacity + b + c * np.exp(d * capacity + e)
@@ -11,14 +25,14 @@ def voltage_model(capacity, a, b, c, d, e):
 def derivative_model(capacity, a, b, c, d, e):
     return a + c * d * np.exp(d * capacity + e)
 
-csv_files = [
+csv_files = ['rawdata_singlepulse/'+f for f in [
     '30mA1msec-0.2mA9msec0-24hour',
     '30mA1msec-0.2mA9msec24-48hour',
     '30mA2msec-0.2mA8msec0-24hour',
     '30mA3msec-0.2mA7msec0-24hour',
     '30mA4msec-0.2mA6msec0-24hour',
     '30mA5msec-0.2mA5msec0-24hour'
-]
+]]
 
 duty_cycles = [0.1, 0.2, 0.3, 0.4, 0.5]
 

@@ -4,9 +4,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import curve_fit
 
+# README: this is an example of leave-one analysis for the parameters of the expressions
+# of the discharge curves. These analysis aims to find the expression of the parameters
+# described by DC,T and I. Yet the result of these expressions usually showns non-linarity.
+# The purpose of the leave-one analysis is to narrow down the domain (DC,T,I) in which the 
+# expression. The wat to narrow down the domain is to reduce the data set lies near the boundary
+# # of the domain. refer to section 3.2
+
 # List of CSV files
-csv_files = ['0.5mA continious.csv', '1mA continious.csv', '1.5mA continious.csv',
-             '2mA continious.csv', '2.5mA continious.csv', '3mA continious.csv']
+csv_files = ['rawdata_singlepulse/' + f for f in ['0.5mA continious.csv', '1mA continious.csv', '1.5mA continious.csv',
+             '2mA continious.csv', '2.5mA continious.csv', '3mA continious.csv']]
 drain_currents = np.array([0.5, 1.0, 1.5, 2.0, 2.5, 3.0])
 
 def model(x, a, b, c, d, e):

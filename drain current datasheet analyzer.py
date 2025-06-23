@@ -4,17 +4,26 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import curve_fit
 
-# List of CSV files and drain currents (in mA)
-csv_files = ['0.5mA continious.csv', '1mA continious.csv', '1.5mA continious.csv',
-             '2mA continious.csv', '2.5mA continious.csv', '3mA continious.csv']
+#README: This script the influence of drain current on battery discharge characteristics.
+# the raw data is extracted from CR2032 datasheet. 
+#refer to section 2.2.1 in the thesis
+
+# List of CSV files as input
+csv_files = ['rawdata_singlepulse/'+ f for f in ['0.5mA continious.csv', '1mA continious.csv', '1.5mA continious.csv',
+             '2mA continious.csv', '2.5mA continious.csv', '3mA continious.csv']]
+
+#define parameters for plotting
 plot_title = ['0.5mA','1.0mA','1.5mA','2.0mA','2.5mA','3.0mA']
 drain_currents = np.array([0.5, 1.0, 1.5, 2.0, 2.5, 3.0])
 
 # Define the model function: y = ax + b + c * exp(dx + e)
+# the discharge curve fitting model
 def model(x, a, b, c, d, e):
     return a * x + b + c * np.exp(d * x + e)
 
-# Initial guesses for curve fitting
+# Initial guesses for curve fitting:
+# this is a list of initial guesses for the parameters [a, b, c, d, e]
+# change the inital guess could possibly change the fitting results drastically
 initial_guesses = [
     [-0.00002, 2.8, -0, 0.1, 0],
     [-0.00003, 2.8, -0, 0.1, 0],
@@ -24,9 +33,10 @@ initial_guesses = [
     [-0.00008, 2.8, -0, 0.1, 0]
 ]
 
-# Store fitted parameters
+# Store fitted parameters (a to e)
 fitted_parameters = []
 
+#read csv files for raw battery discharge characteristics
 for index, csv_file in enumerate(csv_files):
     column1 = []
     column2 = []
@@ -47,7 +57,7 @@ for index, csv_file in enumerate(csv_files):
             print(f"No valid data in {csv_file}")
             continue
 
-        # Filter voltage > 2.2V
+        # Filter voltage > 2.2V: the linear plus exponential pattern may hold within a limitted range
         filter_col1 = [x for x,y in zip(column1,column2) if y >= 2.2]
         filter_col2 = [y for x,y in zip(column1,column2) if y >= 2.2]
 

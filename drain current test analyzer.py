@@ -2,14 +2,21 @@ import csv
 import os
 import matplotlib.pyplot as plt
 
+# README: In this script, we import several sequential files for a single pulse waveform 
+# testcase whose ON stage current is 5 mA and IDLE is 0.2mA.
+# The testing duration is 96 hours.
+# this test is used to see the discharge behavior of the initial voltage drop during discharge
+# refer to section 2.2.1
+
 # List of CSV files to read (update with your actual file names or a folder scan)
-csv_files = ['5mA1msec-0.2mA24msec0-12hours.csv', '5mA1msec-0.2mA24msec12-24hours.csv', '5mA1msec-0.2mA24msec24-48hours.csv',
-             '5mA1msec-0.2mA24msec48-72hours.csv','5mA1msec-0.2mA24msec72-96hours.csv']
+csv_files = ['rawdata_singlepulse/'+ f for f in ['5mA1msec-0.2mA24msec0-12hours.csv', '5mA1msec-0.2mA24msec12-24hours.csv', '5mA1msec-0.2mA24msec24-48hours.csv',
+             '5mA1msec-0.2mA24msec48-72hours.csv','5mA1msec-0.2mA24msec72-96hours.csv']]
 
 # Initialize combined arrays
 column1 = []
 column2 = []
 
+# Read csv files into local variables
 last_value = 0  # Starting point for continuity
 
 for i, filename in enumerate(csv_files):
