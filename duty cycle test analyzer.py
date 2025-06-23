@@ -4,18 +4,21 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import curve_fit
 
+# README: this script analyze the duty cycle's impact on battery discharge characteristics
+# refer to section 2.2.3
+
 # Define the fitting function
 def voltage_model(capacity, a, b, c, d, e):
     return a * capacity + b + c * np.exp(d * capacity + e)
 
-csv_files = [
+csv_files = ['rawdata_singlepulse/' + f for f in [
     '30mA1msec-0.2mA9msec0-24hour',
     '30mA1msec-0.2mA9msec24-48hour',
     '30mA2msec-0.2mA8msec0-24hour',
     '30mA3msec-0.2mA7msec0-24hour',
     '30mA4msec-0.2mA6msec0-24hour',
     '30mA5msec-0.2mA5msec0-24hour'
-]
+]]
 
 duty_cycles = [0.1, 0.2, 0.3, 0.4, 0.5]
 

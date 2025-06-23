@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 
+# README: refer to section 2.2.2
+
 # Model function with exponential term
 def discharge_model(x, a, b, c, d, e):
     return a * x + b + c * np.exp(d * x + e)

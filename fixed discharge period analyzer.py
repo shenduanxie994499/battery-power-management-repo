@@ -5,19 +5,54 @@ import numpy as np
 from scipy.optimize import curve_fit
 import re
 
-# File I/O definitions
-csv_files_10 = ['30mA1msec9msec0-24hour.csv','30mA1msec9msec24-48hour.csv','30mA1msec9msec48-72hour.csv']
-csv_files_15 = ['30mA1msec14msec0-24hour.csv','30mA1msec14msec24-48hour.csv','30mA1msec14msec48-72hour.csv','30mA1msec14msec72-84hour.csv']
-csv_files_25 = ['30mA1msec24msec0-24hour.csv','30mA1msec24msec24-48hour.csv','30mA1msec24msec48-72hour.csv','30mA1msec24msec72-84hour.csv','30mA1msec24msec84-252hour.csv']
-csv_files_50 = ['30mA1msec49msec0-24hour.csv','30mA1msec49msec24-48hour.csv','30mA1msec49msec48-72hour.csv','30mA1msec49msec84-252hour.csv']
-csv_files_75 = ['30mA1msec74msec0-24hour.csv','30mA1msec74msec24-48hour.csv','30mA1msec74msec48-72hour.csv','30mA1msec74msec84-252hour.csv']
+#README: We understand that the single pulse discharge charactersitics
+# is under the joint effect of duty cycle and pulse period. In contrast to previous
+# analysis, we fix the time for discharge and change the time for idle. 
+#Refer to section 2.2.4 in the thesis
+
+# File I/O definitions: 10,15,25,50,75 stands for waveform period
+csv_files_10 = ['rawdata_singlepulse/' + f for f in [
+    '30mA1msec9msec0-24hour.csv',
+    '30mA1msec9msec24-48hour.csv',
+    '30mA1msec9msec48-72hour.csv'
+]]
+
+csv_files_15 = ['rawdata_singlepulse/' + f for f in [
+    '30mA1msec14msec0-24hour.csv',
+    '30mA1msec14msec24-48hour.csv',
+    '30mA1msec14msec48-72hour.csv',
+    '30mA1msec14msec72-84hour.csv'
+]]
+
+csv_files_25 = ['rawdata_singlepulse/' + f for f in [
+    '30mA1msec24msec0-24hour.csv',
+    '30mA1msec24msec24-48hour.csv',
+    '30mA1msec24msec48-72hour.csv',
+    '30mA1msec24msec72-84hour.csv',
+    '30mA1msec24msec84-252hour.csv'
+]]
+
+csv_files_50 = ['rawdata_singlepulse/' + f for f in [
+    '30mA1msec49msec0-24hour.csv',
+    '30mA1msec49msec24-48hour.csv',
+    '30mA1msec49msec48-72hour.csv',
+    '30mA1msec49msec84-252hour.csv'
+]]
+
+csv_files_75 = ['rawdata_singlepulse/' + f for f in [
+    '30mA1msec74msec0-24hour.csv',
+    '30mA1msec74msec24-48hour.csv',
+    '30mA1msec74msec48-72hour.csv',
+    '30mA1msec74msec84-252hour.csv'
+]]
 
 # Constants
-short_sample_time = 0.5  # seconds/sample
-long_sample_time = 5.0   # seconds/sample
+short_sample_time = 0.5  # seconds/sample: the time duration between two samples;
+long_sample_time = 5.0   # seconds/sample: for several rawdara files, the time duration between two samples is 5 seconds (check csv files)
 off_current = 0.2        # mA (idle current)
 on_current = 30.0        # mA (active pulse current)
 
+# Function to extract parameters from file name
 def extract_parameters(file_name):
     """
     Extract on_time, off_time, start_hour, end_hour from file name.
@@ -33,9 +68,11 @@ def extract_parameters(file_name):
     else:
         raise ValueError(f"Filename '{file_name}' does not match expected pattern.")
 
+#function to calculate average discharge current based on discharge waveform
 def average_current_function(on_current, on_time, off_current, off_time):
     return (on_current * on_time + off_current * off_time) / (on_time + off_time)
 
+# Function to read CSV files and extract discahrge charactersitics (curves)
 def csv_read_function(csv_files):
     time_data = []
     capacity_data = []
@@ -72,7 +109,7 @@ def csv_read_function(csv_files):
     filtered_capacity_data = [x * avg_current for x in filtered_time_data]
     return filtered_time_data, filtered_capacity_data, filtered_voltage_data
 
-# read csv functions for data
+# read csv functions for characteristics (curves) of different pulse periods
 time_10, capacity_10, voltage_10 = csv_read_function(csv_files_10)
 time_15, capacity_15, voltage_15 = csv_read_function(csv_files_15)
 time_25, capacity_25, voltage_25 = csv_read_function(csv_files_25)
@@ -80,8 +117,10 @@ time_50, capacity_50, voltage_50 = csv_read_function(csv_files_50)
 time_75, capacity_75, voltage_75 = csv_read_function(csv_files_75)
 
 
+#regression analysis to be implemented (refer to other scripts)
 
 
+# Plotting the results
 plt.figure()
 plt.plot(capacity_10, voltage_10, 'b.', label='10 msec IDLE')
 plt.plot(capacity_15, voltage_15, 'g.', label='15 msec IDLE')
