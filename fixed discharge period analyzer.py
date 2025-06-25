@@ -68,7 +68,7 @@ def extract_parameters(file_name):
     else:
         raise ValueError(f"Filename '{file_name}' does not match expected pattern.")
 
-#function to calculate average discharge current based on discharge waveform
+# function to calculate average discharge current based on discharge waveform
 def average_current_function(on_current, on_time, off_current, off_time):
     return (on_current * on_time + off_current * off_time) / (on_time + off_time)
 
