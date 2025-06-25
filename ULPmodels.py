@@ -21,8 +21,8 @@ class ULPTechnique(ABC):
             self.T >= 0
         ]
 
-    def decision_vars(self):
-        return [self.I, self.DC, self.T]
+    def get_IDCT(self):
+        return self.I, self.DC, self.T
 
     @abstractmethod
     def capacity_expr(self):
@@ -34,7 +34,7 @@ class ULPTechnique(ABC):
         # idk how we plan to optimize
         pass
 
-    def all_constraints(self):
+    def constraints(self):
         """
         Gather any additional constraints (e.g. Vdd bounds, performance, etc.).
         Subclasses can extend by appending to self.bounds.
@@ -74,13 +74,6 @@ class VDDTuning(ULPTechnique):
     def constraints(self):
         return super().constraints() + self._perf_cons
 
-    def get_IDCT(self):
-        # feed the **fixed** I_peak + your DC & T into Shen’s pulse model:
-        return self.I, self.DC, self.T
-        
-    def constraints(self):
-        return super().constraints()
-
 class powerGating(ULPTechnique):
     """
     Crude implementation of power gating of a circuit block. 
@@ -107,13 +100,6 @@ class powerGating(ULPTechnique):
         #self.I = (W/L) * mu_eff * C_ox * (m-1) * np.power(v_T, 2) * np.exp((V_gs - V_th) / (m * v_T)) * (1 - np.exp(-V_ds / v_T)) # Equivalent to subthreshold leakage current
         self.I = (P_stat * (1 - frac_gated) + P_dyn * (1 - frac_gated)) / Vdd_nom
         # NOTE: There technically is some residual leakage while gated area is off. How is this calculated?
-
-    def constraints(self):
-        return super().constraints()
-
-    def get_IDCT(self):
-        # feed the **fixed** I_peak + your DC & T into Shen’s pulse model:
-        return self.I, self.DC, self.T
     
 class clockGating(ULPTechnique):
     """
@@ -145,13 +131,6 @@ class clockGating(ULPTechnique):
         I_leak = P_stat / Vdd_nom
         I_dyn  = (P_dyn * (1 - frac_gated)) / Vdd_nom
         self.I = I_leak + I_dyn
-    
-    def constraints(self):
-        return super().constraints()
-
-    def get_IDCT(self):
-        # feed the **fixed** I_peak + your DC & T into Shen’s pulse model:
-        return self.I, self.DC, self.T
 
 class DVFS(ULPTechnique):
     """
@@ -180,11 +159,4 @@ class DVFS(ULPTechnique):
         self._perf_cons = [
             self.DC * f_clock >= perf_ips
         ]
-
-    def constraints(self):
-        return super().constraints()
-
-    def get_IDCT(self):
-        # feed the **fixed** I_peak + your DC & T into Shen’s pulse model:
-        return self.I, self.DC, self.T
     
