@@ -11,7 +11,7 @@ class ULPTechnique(ABC):
       - T  : pulse period (s)
     """
     def __init__(self):
-        # self.I  = cp.Variable(name="I", nonneg=True)
+        self.I  = cp.Variable(name="I", nonneg=True)
         # I is calculated given device power metrics
         self.DC = cp.Variable(name="DC")
         self.T  = cp.Variable(name="T", nonneg=True)
