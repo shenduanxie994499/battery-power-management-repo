@@ -1,4 +1,4 @@
-from ULPmodels import ULPTechnique
+from ULPmodels import ULPTechnique, powerGating
 import cvxpy as cp
 
 class Module:
@@ -9,21 +9,15 @@ class Module:
     """
     def __init__(self,
                  name: str,
-                 technique: ULPTechnique,
-                 I: float,
-                 DC: float,
-                 T: float):
+                 technique: ULPTechnique):
 
         self.name = name
         self.technique = technique
-        technique.I = I
-        technique.DC = DC
-        technique.T = T
     
     def __repr__(self):
         return self.name
 
-class superModule(Module):
+class SuperModule(Module):
     """
     Base class for a superModule, which inherits the Module class.
     Defines name and the modules/supermodules the supermodule contains.
@@ -41,13 +35,16 @@ class superModule(Module):
     def get_components(self):
         all_components = []
         for component in self.components:
-            if type(component) == superModule:
+            if type(component) == SuperModule:
                 all_components.append(component.get_components())
             else:
                 all_components.append(component)
         return all_components
 
-class Chip(superModule):
+    def __repr__(self):
+        return f"Supermodule: {self.name}\nComponents: {self.get_components()[0]}"
+
+class Chip(SuperModule):
     """
     Base class for a chip, which inherits the superModule class.
     Defines name, will use methods inherited from superModule class.
@@ -56,3 +53,6 @@ class Chip(superModule):
                  name: str):
         self.name = name
         self.components = []
+    
+    def __repr__(self):
+        return f"Chip: {self.name}\nComponents: {self.get_components()[0]}"
