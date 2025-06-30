@@ -10,29 +10,23 @@ class ULPTechnique(ABC):
       - DC : duty cycle
       - T  : pulse period (s)
     """
-    def __init__(self):
-        self.I  = cp.Variable(name="I", nonneg=True)
+    def __init__(self,
+                  I: float,
+                  DC: float, 
+                  T: float):
+        self.I  = I
         # I is calculated given device power metrics
-        self.DC = cp.Variable(name="DC")
-        self.T  = cp.Variable(name="T", nonneg=True)
+        self.DC = DC
+        self.T  = T
 
         self.bounds = [
             self.DC >= 0, self.DC <= 1,
-            self.T >= 0
+            self.T >= 0,
+            self.I >= 0
         ]
 
     def get_IDCT(self):
         return self.I, self.DC, self.T
-
-    @abstractmethod
-    def capacity_expr(self):
-        """
-        Return a CVXPY expression for effective battery capacity
-        as a function of (I, DC, T).
-        """
-        # Convex optimization library CVXPY gives mathematical object for optimization algo
-        # idk how we plan to optimize
-        pass
 
     def constraints(self):
         """
@@ -59,7 +53,7 @@ class VDDTuning(ULPTechnique):
                  Vdd: float,
                  perf_ips: float,
                  f_clock:  float):
-        super().__init__()
+        # super().__init__()
 
         # Convert your known power metrics into a fixed peak‐current:
         self.I_idle = P_stat / Vdd      # not used?
@@ -86,17 +80,8 @@ class powerGating(ULPTechnique):
                  P_stat: float,  # static (leakage) power of full block (W)
                  frac_gated: float,  # fraction of block actually gated off
                  Vdd_nom: float   # supply voltage (V)
-                 # V_gs: float,   # Gate to source voltage
-                 # W: float,      # Width of device
-                 # L: float,      # Length of device
-                 # mu_eff: float, # Effective mobility
-                 # C_ox: float,   # Oxide capacitance of grid
-                 # m: float,      # Slope coefficient of the current below sub-threshold,
-                 # v_T: float,    # Thermal voltage kT/q
-                 # V_th: float,   # Threshold voltage
-                 # V_ds: float    # Drain to source voltage
                  ):
-        super().__init__()
+        # super().__init__()
         #self.I = (W/L) * mu_eff * C_ox * (m-1) * np.power(v_T, 2) * np.exp((V_gs - V_th) / (m * v_T)) * (1 - np.exp(-V_ds / v_T)) # Equivalent to subthreshold leakage current
         self.I = (P_stat * (1 - frac_gated) + P_dyn * (1 - frac_gated)) / Vdd_nom
         # NOTE: There technically is some residual leakage while gated area is off. How is this calculated?
@@ -106,31 +91,16 @@ class clockGating(ULPTechnique):
     Crude implementation of clock gating of a circuit block.
     Takes into account subthrehsold leakage current and static power assumed to be given (unlike power gating, V_dd and GND is still connected in clock gated blocks).
     Missing implementation of power and delay penalty during wake-up of the block.
+    Note: static power for clock gating is typically higher than power gating, so this could be a constraint that can be added.
     """
     def __init__(self,
                  P_dyn: float,  # dynamic power of full block (W)
                  P_stat: float,  # static (leakage) power of full block (W)
                  frac_gated: float,  # fraction of block that is clock-gated
                  Vdd_nom: float   # supply voltage (V)
-                 # V_gs: float,   # Gate to source voltage
-                 # W: float,      # Width of device
-                 # L: float,      # Length of device
-                 # mu_eff: float, # Effective mobility
-                 # C_ox: float,   # Oxide capacitance of grid
-                 # m: float,      # Slope coefficient of the current below sub-threshold,
-                 # v_T: float,    # Thermal voltage kT/q
-                 # V_th: float,   # Threshold voltage
-                 # V_ds: float,   # Drain to source voltage
-                 # P_stat: float, # Static Power
-                 # V_dd: float    # Power supply voltage
                  ):
-        super().__init__()
-        #self.I_sub = (W/L) * mu_eff * C_ox * (m-1) * np.power(v_T, 2) * np.exp((V_gs - V_th) / (m * v_T)) * (1 - np.exp(-V_ds / v_T))
-        #self.I_idle = P_stat / V_dd
-        #self.I = self.I_sub + self.I_idle
-        I_leak = P_stat / Vdd_nom
-        I_dyn  = (P_dyn * (1 - frac_gated)) / Vdd_nom
-        self.I = I_leak + I_dyn
+        # super().__init__()
+        self.I = (P_stat * (1 - frac_gated) + P_dyn * (1 - frac_gated)) / Vdd_nom
 
 class DVFS(ULPTechnique):
     """
@@ -154,7 +124,7 @@ class DVFS(ULPTechnique):
                  V_dd: float,
                  f_clock: float,
                  perf_ips: float):
-        super().__init__()
+        # super().__init__()
         self.I = (P_dyn + P_stat + P_sc) / V_dd
         self._perf_cons = [
             self.DC * f_clock >= perf_ips

@@ -10,9 +10,9 @@ class Module:
     def __init__(self,
                  name: str,
                  technique: ULPTechnique,
-                 I: cp.Variable,
-                 DC: cp.Variable,
-                 T: cp.Variable):
+                 I: float,
+                 DC: float,
+                 T: float):
 
         self.name = name
         self.technique = technique
