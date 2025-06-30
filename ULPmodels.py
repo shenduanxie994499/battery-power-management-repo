@@ -1,6 +1,8 @@
 import cvxpy as cp
 from abc import ABC, abstractmethod
 import numpy as np
+import random
+import matplotlib.pyplot as plt
 
 class ULPTechnique(ABC):
     """
@@ -118,15 +120,81 @@ class DVFS(ULPTechnique):
     """
     def __init__(self,
                  phase: int,
-                 P_dyn: float,
-                 P_stat: float,
-                 P_sc: float,
+                 alpha: float,
+                 C_tot: float,
+                 I_leak: float,
                  V_dd: float,
                  f_clock: float,
                  perf_ips: float):
-        # super().__init__()
-        self.I = (P_dyn + P_stat + P_sc) / V_dd
-        self._perf_cons = [
+        # super().__init__(self.I, self.DC, self.T)
+        self.alpha = alpha
+        self.V_dd = V_dd
+        self.I_leak = I_leak
+        self.C_tot = C_tot
+        self.f_clock = f_clock 
+
+        self.P_stat = I_leak * self.V_dd
+        self.P_dyn = alpha * C_tot * (self.V_dd ** 2) * f_clock
+        self.I = (self.P_dyn + self.P_stat) / V_dd
+        """self._perf_cons = [
             self.DC * f_clock >= perf_ips
-        ]
+        ]"""
+        if self.P_stat > self.P_dyn:
+            raise ValueError("P_stat greater than P_dyn")
     
+    def f(self):
+        # Does some calculation to return a runtime?
+        # Right now it will be a random value from 0 to 1
+        return random.random()
+
+    def voltage_scale(self):
+        """
+        Assumes lower bound is when static power becomes less than dynamic power.
+        Assumes upper bound is when static power becomes less than 10% of dynamic power.
+        Return lower/upper bound of V_dd as a list.
+        """
+        P_stat = 0
+        P_dyn = 0
+        V_dd = 0
+        voltageLimit = []
+        while True:
+            V_dd += 0.01
+            P_stat = self.I_leak * V_dd
+            P_dyn = self.alpha * self.C_tot * (V_dd ** 2) * self.f_clock
+            if P_stat <= P_dyn:
+                if len(voltageLimit) == 0:
+                    voltageLimit.append(V_dd)
+                    continue
+                if P_stat * 9 < P_dyn:
+                    voltageLimit.append(V_dd)
+                    break
+        
+        return np.round(voltageLimit, 2)
+    
+    def frequency_scale(self):
+        """
+        Assumes lower bound is when static power becomes less than dynamic power.
+        Assumes upper bound is when static power becomes less than 10% of dynamic power.
+        Return lower/upper bound of f_clock as a list.
+        """
+        P_stat = self.I_leak * self.V_dd
+        P_dyn = 0
+        f_clock = 0
+        freqLimit = []
+        while True:
+            f_clock += 10**6
+            P_dyn = self.alpha * self.C_tot * (self.V_dd ** 2) * f_clock
+            if P_stat <= P_dyn:
+                if len(freqLimit) == 0:
+                    freqLimit.append(f_clock)
+                    continue
+                if P_stat * 9 < P_dyn:
+                    freqLimit.append(f_clock)
+                    break
+        return np.round(freqLimit, 2)
+
+"""DVS = DVFS(1, 0.9, 20*(10**-9), 20*(10**-3), 1.2, 100*(10**6), 0)
+DVS.I = 0
+DVS.DC=0
+DVS.T = 0
+print(DVS.frequency_scale())"""
