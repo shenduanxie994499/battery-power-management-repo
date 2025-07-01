@@ -10,11 +10,22 @@ class ULPTechnique(ABC):
       - DC : duty cycle
       - T  : pulse period (s)
     """
-    def __init__(self):
-        self.I  = cp.Variable(name="I", nonneg=True)
+    def __init__(self,
+                DC: float, 
+                T: float,
+                P_dyn: float,
+                P_stat_on: float,
+                P_stat_off: float,
+                V_dd: float):
+        self.P_dyn = P_dyn
+        self.P_stat_on = P_stat_on
+        self.P_stat_off = P_stat_off
+        self.V_dd = V_dd
+        self.DC = DC
+        self.T  = T
         # I is calculated given device power metrics
-        self.DC = cp.Variable(name="DC")
-        self.T  = cp.Variable(name="T", nonneg=True)
+        self.DCvar = cp.Variable(name="DC")
+        self.Tvar  = cp.Variable(name="T", nonneg=True)
 
         self.bounds = [
             self.DC >= 0, self.DC <= 1,
@@ -24,7 +35,7 @@ class ULPTechnique(ABC):
     def get_IDCT(self):
         return self.I, self.DC, self.T
 
-    @abstractmethod
+    # @abstractmethod
     def capacity_expr(self):
         """
         Return a CVXPY expression for effective battery capacity
@@ -82,10 +93,12 @@ class powerGating(ULPTechnique):
     Missing implementation of power and delay penalty during wake-up of the block.
     """
     def __init__(self,
-                 P_dyn: float,  # dynamic power of full block (W)
-                 P_stat: float,  # static (leakage) power of full block (W)
-                 frac_gated: float,  # fraction of block actually gated off
-                 Vdd_nom: float   # supply voltage (V)
+                DC: float, 
+                T: float,
+                P_dyn: float,
+                P_stat_on: float,
+                P_stat_off: float,
+                Vdd_nom: float   # supply voltage (V)
                  # V_gs: float,   # Gate to source voltage
                  # W: float,      # Width of device
                  # L: float,      # Length of device
@@ -96,10 +109,13 @@ class powerGating(ULPTechnique):
                  # V_th: float,   # Threshold voltage
                  # V_ds: float    # Drain to source voltage
                  ):
-        super().__init__()
+        super().__init__(DC, T, P_dyn, P_stat_on, P_stat_off, Vdd_nom)
         #self.I = (W/L) * mu_eff * C_ox * (m-1) * np.power(v_T, 2) * np.exp((V_gs - V_th) / (m * v_T)) * (1 - np.exp(-V_ds / v_T)) # Equivalent to subthreshold leakage current
-        self.I = (P_stat * (1 - frac_gated) + P_dyn * (1 - frac_gated)) / Vdd_nom
+        self.I = (P_stat_on * (self.DC) + P_dyn * (self.DC) + P_stat_off * (1 - self.DC)) / Vdd_nom
         # NOTE: There technically is some residual leakage while gated area is off. How is this calculated?
+    
+    def get_expressionI(self):
+        return (self.P_stat * (self.DCvar) + self.P_dyn * (self.DCvar) + self.P_stat_off * (1 - self.DCvar)) / self.V_dd
     
 class clockGating(ULPTechnique):
     """
@@ -110,7 +126,6 @@ class clockGating(ULPTechnique):
     def __init__(self,
                  P_dyn: float,  # dynamic power of full block (W)
                  P_stat: float,  # static (leakage) power of full block (W)
-                 frac_gated: float,  # fraction of block that is clock-gated
                  Vdd_nom: float   # supply voltage (V)
                  # V_gs: float,   # Gate to source voltage
                  # W: float,      # Width of device
@@ -129,7 +144,7 @@ class clockGating(ULPTechnique):
         #self.I_idle = P_stat / V_dd
         #self.I = self.I_sub + self.I_idle
         I_leak = P_stat / Vdd_nom
-        I_dyn  = (P_dyn * (1 - frac_gated)) / Vdd_nom
+        I_dyn  = (P_dyn * (1 - self.DC)) / Vdd_nom
         self.I = I_leak + I_dyn
 
 class DVFS(ULPTechnique):
