@@ -13,13 +13,18 @@ class ULPTechnique(ABC):
       - T  : pulse period (s)
     """
     def __init__(self,
-                  I: float,
                   DC: float, 
-                  T: float):
-        self.I  = I
-        # I is calculated given device power metrics
+                  T: float,
+                  P_dyn: float,
+                  P_stat: float,
+                  V_dd: float):
+        self.P_dyn = P_dyn
+        self.P_stat = P_stat
+        self.V_dd = V_dd
         self.DC = DC
         self.T  = T
+        self.I = (P_dyn + P_stat) / V_dd
+        # I is calculated given device power metrics
 
         self.bounds = [
             self.DC >= 0, self.DC <= 1,
@@ -81,11 +86,12 @@ class powerGating(ULPTechnique):
                  P_dyn: float,  # dynamic power of full block (W)
                  P_stat: float,  # static (leakage) power of full block (W)
                  frac_gated: float,  # fraction of block actually gated off
-                 Vdd_nom: float   # supply voltage (V)
+                 V_dd: float,   # supply voltage (V)
+                 DC: float,
+                 T: float,
                  ):
-        # super().__init__()
-        #self.I = (W/L) * mu_eff * C_ox * (m-1) * np.power(v_T, 2) * np.exp((V_gs - V_th) / (m * v_T)) * (1 - np.exp(-V_ds / v_T)) # Equivalent to subthreshold leakage current
-        self.I = (P_stat * (1 - frac_gated) + P_dyn * (1 - frac_gated)) / Vdd_nom
+        super().__init__(DC, T, P_dyn, P_stat, V_dd)
+        self.I = (P_stat * (1 - frac_gated) + P_dyn * (1 - frac_gated)) / V_dd
         # NOTE: There technically is some residual leakage while gated area is off. How is this calculated?
     
 class clockGating(ULPTechnique):
@@ -98,11 +104,13 @@ class clockGating(ULPTechnique):
     def __init__(self,
                  P_dyn: float,  # dynamic power of full block (W)
                  P_stat: float,  # static (leakage) power of full block (W)
-                 frac_gated: float,  # fraction of block that is clock-gated
-                 Vdd_nom: float   # supply voltage (V)
+                 frac_gated: float,  # fraction of block actually gated off
+                 V_dd: float,   # supply voltage (V)
+                 DC: float,
+                 T: float,
                  ):
-        # super().__init__()
-        self.I = (P_stat * (1 - frac_gated) + P_dyn * (1 - frac_gated)) / Vdd_nom
+        super().__init__(DC, T, P_dyn, P_stat, V_dd)
+        self.I = (P_stat * (1 - frac_gated) + P_dyn * (1 - frac_gated)) / V_dd
 
 class DVFS(ULPTechnique):
     """
@@ -125,7 +133,10 @@ class DVFS(ULPTechnique):
                  I_leak: float,
                  V_dd: float,
                  f_clock: float,
-                 perf_ips: float):
+                 perf_ips: float,
+                 DC: float,
+                 T: float
+                 ):
         # super().__init__(self.I, self.DC, self.T)
         self.alpha = alpha
         self.V_dd = V_dd
@@ -136,16 +147,10 @@ class DVFS(ULPTechnique):
         self.P_stat = I_leak * self.V_dd
         self.P_dyn = alpha * C_tot * (self.V_dd ** 2) * f_clock
         self.I = (self.P_dyn + self.P_stat) / V_dd
-        """self._perf_cons = [
-            self.DC * f_clock >= perf_ips
-        ]"""
+        super().__init__(DC, T, self.P_dyn, self.P_stat, self.V_dd)
+
         if self.P_stat > self.P_dyn:
             raise ValueError("P_stat greater than P_dyn")
-    
-    def f(self):
-        # Does some calculation to return a runtime?
-        # Right now it will be a random value from 0 to 1
-        return random.random()
 
     def voltage_scale(self):
         """
