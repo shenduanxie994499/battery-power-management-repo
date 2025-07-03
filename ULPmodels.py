@@ -154,3 +154,61 @@ class DVFS(ULPTechnique):
             self.DC * f_clock >= perf_ips
         ]
     
+    def voltage_scale(self, 
+                      alpha: float, 
+                      C_tot: float, 
+                      f_clock: float):
+        """
+        Assumes lower bound is when static power becomes less than dynamic power.
+        Assumes upper bound is when static power becomes less than 10% of dynamic power.
+        Given a frequency, return lower/upper bound of V_dd as a list.
+        """
+        P_stat = 0
+        P_dyn = 0
+        V_dd = 0
+        I_leak = self.P_stat_on / self.V_dd
+        voltageLimit = []
+        while True:
+            V_dd += 0.01
+            # Modelling I_leak, which is dependent on V_dd, is a bit too complicated. 
+            # Here it is assumed that the leakage current is constant based on initial condition.
+            P_stat = I_leak * V_dd
+            P_dyn = alpha * C_tot * (V_dd ** 2) * f_clock
+            if P_stat <= P_dyn:
+                if len(voltageLimit) == 0:
+                    if P_stat * 9 < P_dyn:
+                        raise ValueError("Cannot be optimized")
+                    voltageLimit.append(V_dd)
+                    continue
+                if P_stat * 9 < P_dyn:
+                    voltageLimit.append(V_dd)
+                    break
+        
+        return np.round(voltageLimit, 2)
+
+    def frequency_scale(self, 
+                      alpha: float, 
+                      C_tot: float, 
+                      f_clock: float):
+        """
+        Assumes lower bound is when static power becomes less than dynamic power.
+        Assumes upper bound is when static power becomes less than 10% of dynamic power.
+        Using user-input static power and supply voltage, returns lower/upper bound of f_clock as a list.
+        """
+        P_stat = self.P_stat_on
+        P_dyn = 0
+        f_clock = 0
+        freqLimit = []
+        while True:
+            f_clock += 10**5
+            P_dyn = alpha * C_tot * (self.V_dd ** 2) * f_clock
+            if P_stat <= P_dyn and self.T < (1/f_clock):
+                if len(freqLimit) == 0:
+                    if P_stat * 9 < P_dyn:
+                        raise ValueError("Cannot be optimized")
+                    freqLimit.append(f_clock)
+                    continue
+                if P_stat * 9 < P_dyn:
+                    freqLimit.append(f_clock)
+                    break
+        return np.round(freqLimit, 2)
