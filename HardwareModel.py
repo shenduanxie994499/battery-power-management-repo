@@ -72,7 +72,11 @@ class superModule(Module):
             return np.zeros_like(time_array)
         stacked = np.zeros_like(time_array, dtype=float)
         for m in self.components:
-            stacked += m.generate_waveform(time_array)
+            if type(m) == superModule:
+                for m1 in m.components:
+                    stacked += m1.generate_waveform(time_array)
+            else:
+                stacked += m.generate_waveform(time_array)
         return stacked
 
 class Chip(superModule):

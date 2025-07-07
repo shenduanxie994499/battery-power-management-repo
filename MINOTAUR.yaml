@@ -1,0 +1,151 @@
+Module:
+  - name: RRAM_macro_1
+    technique:
+    DC:
+    T:
+    P_dyn:
+    P_stat_on:
+    P_stat_off:
+    V_dd: 1.1
+
+  - name: RRAM_macro_2
+    technique:
+    DC:
+    T:
+    P_dyn:
+    P_stat_on:
+    P_stat_off:
+    V_dd: 1.1
+
+  - name: RRAM_macro_3
+    technique:
+    DC:
+    T:
+    P_dyn:
+    P_stat_on:
+    P_stat_off:
+    V_dd: 1.1
+
+  - name: RRAM_macro_4
+    technique:
+    DC:
+    T:
+    P_dyn:
+    P_stat_on:
+    P_stat_off:
+    V_dd: 1.1
+  
+  - name: RRAM_macro_5
+    technique:
+    DC:
+    T:
+    P_dyn:
+    P_stat_on:
+    P_stat_off:
+    V_dd: 1.1
+
+  - name: RRAM_macro_6
+    technique:
+    DC:
+    T:
+    P_dyn:
+    P_stat_on:
+    P_stat_off:
+    V_dd: 1.1
+
+  - name: RRAM_macro_7
+    technique:
+    DC:
+    T:
+    P_dyn:
+    P_stat_on:
+    P_stat_off:
+    V_dd: 1.1
+
+  - name: RRAM_macro_8
+    technique:
+    DC:
+    T:
+    P_dyn:
+    P_stat_on:
+    P_stat_off:
+    V_dd: 1.1
+  
+  - name: NN_accel
+    technique:
+    DC:
+    T:
+    P_dyn:
+    P_stat_on:
+    P_stat_off:
+    V_dd: 0.9
+  
+  - name: CPU
+    technique:
+    DC:
+    T:
+    P_dyn:
+    P_stat_on:
+    P_stat_off:
+    V_dd: 0.9
+
+  - name: PMU
+    technique:
+    DC:
+    T:
+    P_dyn:
+    P_stat_on:
+    P_stat_off:
+    V_dd: 0.9
+
+  - name: SRAM_macro_1
+    technique:
+    DC:
+    T:
+    P_dyn:
+    P_stat_on:
+    P_stat_off:
+    V_dd: 1.1
+
+  - name: SRAM_macro_2
+    technique:
+    DC:
+    T:
+    P_dyn:
+    P_stat_on:
+    P_stat_off:
+    V_dd: 1.1
+
+superModule:
+  - name: RRAM_bank_1
+    modules:
+      - RRAM_macro_1
+      - RRAM_macro_2
+      - RRAM_macro_3
+      - RRAM_macro_4
+    supermodules:
+
+  - name: RRAM_bank_2
+    modules:
+      - RRAM_macro_5
+      - RRAM_macro_6
+      - RRAM_macro_7
+      - RRAM_macro_8
+    supermodules:
+
+  - name: SRAM_bank_1
+    modules:
+      - SRAM_macro_1
+      - SRAM_macro_2
+    supermodules:
+
+Chip:
+  - name: MINOTAUR
+    modules:
+      - NN_accel
+      - CPU
+      - PMU
+    supermodules:
+      - RRAM_bank_1
+      - RRAM_bank_2
+      - SRAM_bank_1

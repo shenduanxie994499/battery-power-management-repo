@@ -1,0 +1,44 @@
+Module:
+  - name: RRAM_macro_1
+    technique: powerGating
+    DC: 0.2
+    T: 10
+    P_dyn: 1
+    P_stat_on: 0.5
+    P_stat_off: 0.25
+    V_dd: 1.1
+
+  - name: RRAM_macro_2
+    technique: clockGating
+    DC: 0.2
+    T: 10
+    P_dyn: 1
+    P_stat_on: 0.5
+    P_stat_off: 0.25
+    V_dd: 1.1
+  
+  - name: CPU
+    technique: DVFS
+    phase: 1
+    DC: 0.4
+    T: 10
+    P_dyn: 2
+    P_stat_on: 1
+    P_stat_off: 0.5
+    f_clock: 1
+    perf_ips: 1
+    V_dd: 0.9
+
+superModule:
+  - name: RRAM_bank_1
+    modules:
+      - RRAM_macro_1
+      - RRAM_macro_2
+    supermodules:
+
+Chip:
+  - name: test
+    modules:
+      - CPU
+    supermodules:
+      - RRAM_bank_1
