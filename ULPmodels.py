@@ -24,7 +24,7 @@ class ULPTechnique(ABC):
         self.DC = DC
         self.T  = T
         # I is calculated given device power metrics
-        self.I = self.get_expressionI()
+        self.I = self.get_Ion()
         self.DCvar = cp.Variable(name="DC")
         self.Tvar  = cp.Variable(name="T", nonneg=True)
 
@@ -33,12 +33,22 @@ class ULPTechnique(ABC):
             self.T >= 0
         ]
 
+    # for convex optimization
     def get_expressionI(self):
-        return (self.P_stat_on * (self.DC) + self.P_dyn * (self.DC) + self.P_stat_off * (1 - self.DC)) / self.V_dd
-    
+        return (self.P_stat_on * (self.DCvar) + self.P_dyn * (self.DCvar) + self.P_stat_off * (1 - self.DCvar)) / self.V_dd
+
     def get_IDCT(self):
         return self.I, self.DC, self.T
-
+    
+    def get_Ion(self):
+        # return I_drain for "active" portion of pulse
+        # "inactive" portion is usually just P_stat_off / VDD
+        return (self.P_stat_on * (self.DC) + self.P_dyn * (self.DC)) / self.V_dd
+        
+    def get_Ioff(self):
+        # "inactive" portion is usually just P_stat_off / VDD
+        return self.P_stat_off / self.V_dd
+    
     # @abstractmethod
     def capacity_expr(self):
         """
@@ -106,8 +116,10 @@ class powerGating(ULPTechnique):
                 Vdd_nom: float   # supply voltage (V)
                 ):
         super().__init__(DC, T, P_dyn, P_stat_on, P_stat_off, Vdd_nom)
-        self.I = self.get_expressionI()
+        #self.I = self.get_expressionI()
+        self.I = self.get_Ion()
         # NOTE: There technically is some residual leakage while gated area is off. How is this calculated?
+    
     
 class clockGating(ULPTechnique):
     """

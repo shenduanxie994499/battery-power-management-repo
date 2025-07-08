@@ -31,14 +31,16 @@ class Module:
         """
         # extract numeric values (fall back if they're already floats)
         try:
-            I, DC, T = self.technique.get_IDCT()
+            I_on, DC, T = self.technique.get_IDCT()
         except Exception:
             raise RuntimeError(f"Module {self.name}: need numeric I/DC/T before waveform")
 
         # square‐pulse: 1 during on‐interval, 0 otherwise
         phase = np.mod(time_array, T)
         on_mask = (phase < DC * T)
-        return I * on_mask.astype(float)
+        off_mask = (phase >= DC * T)
+        I_off = self.technique.get_Ioff()
+        return I_on * on_mask.astype(float) + I_off * off_mask.astype(float)
 
 class superModule(Module):
     """
