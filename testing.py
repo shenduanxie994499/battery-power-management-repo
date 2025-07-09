@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import csv
-from multivar import *
+from multivar_threepart import *
 
 def linear_model(Q,a,b):
     return a * Q + b

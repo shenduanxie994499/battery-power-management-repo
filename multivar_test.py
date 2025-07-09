@@ -1,5 +1,5 @@
 import unittest
-from multivar import *
+from multivar_threepart import *
 
 class TestMultiVar(unittest.TestCase):
     def test_parser(self):
