@@ -1,5 +1,5 @@
 import unittest
-from multivar_threepart import *
+from inflection_visualizer import *
 
 class TestMultiVar(unittest.TestCase):
     def test_parser(self):
