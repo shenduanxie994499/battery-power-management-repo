@@ -99,7 +99,7 @@ for key, group in file_groups.items():
     time_arr = np.array(time)
     voltage_arr = np.array(voltage)
     capacity_arr = I_avg * time_arr
-    #voltage_arr = savgol_filter(voltage_arr, window_length=11, polyorder=3)
+    voltage_arr = savgol_filter(voltage_arr, window_length=11, polyorder=3)
 
     output_path = os.path.join("/Users/tomhuang/Documents/battery-power-management-repo/processed_data", f"{key}.csv")
     with open(output_path, "w", newline = "") as f:
@@ -129,14 +129,11 @@ for file in files_list:
     capacity = np.array(capacity)
     voltage = np.array(voltage)
     
-    voltage = savgol_filter(voltage, window_length=15501, polyorder=3)
+    #voltage = savgol_filter(voltage, window_length=15501, polyorder=3)
 
     mask = (voltage > fev) 
     capacity = capacity[mask]
     voltage = voltage[mask] 
-    #window_size = 1501
-    # kernel = np.ones(window_size) / window_size
-    # voltage_smoothed = np.convolve(voltage, kernel, mode = 'valid')
 
     voltage = voltage / voltage[0]
 
