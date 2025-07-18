@@ -7,7 +7,6 @@ from collections import *
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.cross_decomposition import PLSRegression
-from scipy.signal import savgol_filter
 from scipy.optimize import curve_fit
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -41,13 +40,13 @@ def extract_parameters(file_name):
     else:
         raise ValueError(f"Filename '{file_name}' does not match expected pattern.")
 
-
-def find_cutoff(capacity, voltage, scan_start_frac=0.3, negative_run=600):
+def find_cutoff(capacity, voltage, scan_start_frac=0.35, negative_run=10):
     d1 = np.gradient(voltage, capacity)
     d2 = np.gradient(d1, capacity)
+    print(f"Max d2: {np.max(d2):.4e}, Min d2: {np.min(d2):.4e}")
     start_idx = int(scan_start_frac * len(capacity))
     for i in range(start_idx, len(d2) - negative_run):
-        if np.all(d2[i:i + negative_run] < -0.00005):
+        if np.all(d2[i:i + negative_run] < -0.000001):
             return i
     return -1  # fallback
 
@@ -57,9 +56,6 @@ def average_current(on_current, on_time, off_current, off_time):
 
 def linear(x,a,b):
     return a * x + b
-
-def exponential_shifted(x, c, d,x0):
-    return c * (np.exp(d * x) - np.exp(d * x0))
 
 #fit a polynomial fit to the cropped voltage discharge curve and write it into a dictionary
 def fit_model(capacity, voltage, filename, downsample_rate=10):
@@ -74,12 +70,10 @@ def fit_model(capacity, voltage, filename, downsample_rate=10):
     capacity = np.array(capacity)
     voltage = np.array(voltage)
 
-    # Smooth voltage before trimming
-    voltage = savgol_filter(voltage, window_length=1551, polyorder=3)
-
-    flatten_index = int(0.07 * len(capacity))
-    capacity = capacity[flatten_index:]
-    voltage = voltage[flatten_index:]
+    cutoff_mah = 5  # or whatever threshold you want
+    mask = capacity >= cutoff_mah
+    capacity = capacity[mask]
+    voltage = voltage[mask]
 
     # Find cutoff point
     i = find_cutoff(capacity, voltage)
@@ -95,22 +89,25 @@ def fit_model(capacity, voltage, filename, downsample_rate=10):
     y_exp_residual = y_exp - linear(x_exp, a, b)
     x0 = x_exp[0]
 
-    def exponential(x,c,d):
-        return exponential_shifted(x,c,d,x0)
+    def exponential(x, c, d):
+        return c * (np.exp(d * x) - np.exp(d * x0))
 
     params_exp, _ = curve_fit(
         exponential,
         x_exp,
         y_exp_residual,
         p0=[-0.01, 0.05],
-        bounds = [[-0.5,0],[0,0.5]],    
-        maxfev=5000             
+        bounds = [[-0.5,0],[0,0.1]],  
+        maxfev=5000                 
     )
     c,d = params_exp
 
     full_fit = np.zeros_like(capacity)
     full_fit[:i] = linear(capacity[:i], a, b)
     full_fit[i:] = linear(capacity[i:], a, b) + exponential(capacity[i:], c, d)
+
+    plt.plot(capacity, voltage, alpha=0.5, label=f"Data ({filename})")
+    plt.plot(capacity, full_fit, label=f"Fit ({filename})", linewidth=2)
 
     print(f"{filename} | split at {capacity[i]:.2f} | a={a:.4f}, b={b:.4f}, c={c:.4e}, d={d:.4f}")
 
@@ -123,6 +120,7 @@ def fit_model(capacity, voltage, filename, downsample_rate=10):
         "x0" : x0
     }
 
+plt.figure()
 results = []
 for file in filelist:
     file_path = os.path.join(data_dir, file)
@@ -147,23 +145,37 @@ for file in filelist:
     result = fit_model(capacity, voltage, file)
     results.append(result)
 
+plt.xlabel("Capacity (mAh)")
+plt.ylabel("Voltage (V)")
+plt.title("Voltage vs Capacity (Predicted Curve)")
+plt.xlim(0,200)
+plt.ylim(0.5,1)
+plt.grid(True)
+# plt.legend()
+plt.tight_layout()
+plt.show()
+
 df = pd.DataFrame(results)
 print(df)
-
 
 X = df[["DC", "I (mA)", "T (ms)"]]
 Y = df[[col for col in df.columns if col.startswith("coef_")] + ["x0"]] 
 
-X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2)
 
 model = PLSRegression(n_components=2)
 model.fit(X_train, Y_train)
 
+DC = 0.2
+I = 30
+T = 10
+
 new_input = [[0.4, 5, 5]]  # example: DC = 0.4, I = 30 mA, T = 10 ms
 predicted_coeffs = model.predict(new_input)[0]
 a, b, c, d, x0 = predicted_coeffs
+c = -abs(c)
 
-capacity_range = np.linspace(0, 50, 200)
+capacity_range = np.linspace(0, 500, 200)
 split_index = np.searchsorted(capacity_range, x0)
 
 def linear_eval(x):
@@ -177,11 +189,19 @@ voltage_pred = np.zeros_like(capacity_range)
 voltage_pred[:split_index] = linear_eval(capacity_range[:split_index])
 voltage_pred[split_index:] = linear_eval(capacity_range[split_index:]) + exponential_eval(capacity_range[split_index:])
 
+print(f"DC: {DC}, I: {I}, T: {T} | split at {x0:.2f} | a={a:.4f}, b={b:.4f}, c={c:.4e}, d={d:.4f}")
+
+valid_mask = voltage_pred > 0
+capacity_range = capacity_range[valid_mask]
+voltage_pred = voltage_pred[valid_mask]
+
 # Plot the predicted curve
 plt.figure()
 plt.plot(capacity_range, voltage_pred, label='Predicted Voltage Curve')
 plt.xlabel("Capacity (mAh)")
+
 plt.ylabel("Voltage (V)")
+plt.ylim(0,1)
 plt.title("Voltage vs Capacity (Predicted Curve)")
 plt.grid(True)
 plt.legend()
@@ -190,4 +210,3 @@ plt.show()
 
 score = model.score(X_test, Y_test)
 print(f"R² score on test set: {score:.3f}")
-

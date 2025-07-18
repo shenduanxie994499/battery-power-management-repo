@@ -11,10 +11,14 @@ from scipy.signal import savgol_filter
 from scipy.optimize import curve_fit
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
-# data_dir = os.path.join(base_dir, "smoothed_normalized_data")
-data_dir = os.path.join(base_dir, "testing")
+data_dir = "./smoothed_normalized_data"
 
-blacklist = ['30.0mA5msec-0.2mA5msec.csv','30.0mA4msec-0.2mA6msec.csv','30.0mA3msec-0.2mA7msec.csv']
+blacklist = ['30.0mA5msec-0.2mA5msec.csv',
+             '30.0mA4msec-0.2mA6msec.csv',
+             '30.0mA3msec-0.2mA7msec.csv',
+             '20.0mA2msec-0.2mA8msec.csv',
+             '40.0mA8msec-0.2mA12msec.csv']
+
 filelist = [f for f in os.listdir(data_dir) if f.endswith('.csv') and f not in blacklist]
 
 #filelist = ['20.0mA1msec-0.2mA4msec.csv']
@@ -38,14 +42,24 @@ def extract_parameters(file_name):
         raise ValueError(f"Filename '{file_name}' does not match expected pattern.")
 
 
-def find_cutoff(capacity, voltage, scan_start_frac=0.3, negative_run=600):
+def find_cutoff(capacity, voltage, scan_start_frac=0.35, negative_run=10):
     d1 = np.gradient(voltage, capacity)
     d2 = np.gradient(d1, capacity)
+    print(f"Max d2: {np.max(d2):.4e}, Min d2: {np.min(d2):.4e}")
     start_idx = int(scan_start_frac * len(capacity))
     for i in range(start_idx, len(d2) - negative_run):
-        if np.all(d2[i:i + negative_run] < -0.00005):
+        if np.all(d2[i:i + negative_run] < -0.000001):
             return i
     return -1  # fallback
+
+# def find_cutoff(capacity, voltage, scan_start_frac=0.2, negative_run=600):
+#     d1 = np.gradient(voltage, capacity)
+#     d2 = np.gradient(d1, capacity)
+#     start_idx = int(scan_start_frac * len(capacity))
+#     for i in range(start_idx, len(d2) - negative_run):
+#         if np.all(d2[i:i + negative_run] < -0.00005):
+#             return i
+#     return -1  # fallback
 
 # function to calculate average discharge current based on discharge waveform
 def average_current(on_current, on_time, off_current, off_time):
@@ -66,11 +80,15 @@ def fit_model(capacity, voltage, filename,downsample_rate=10):
     voltage = np.array(voltage)
 
     # Smooth voltage before trimming
-    voltage = savgol_filter(voltage, window_length=1551, polyorder=3)
+    # voltage = savgol_filter(voltage, window_length=1551, polyorder=3)
 
-    flatten_index = int(0.07 * len(capacity))
-    capacity = capacity[flatten_index:]
-    voltage = voltage[flatten_index:]
+    # flatten_index = int(0.07 * len(capacity))
+    # capacity = capacity[flatten_index:]
+    # voltage = voltage[flatten_index:]
+    cutoff_mah = 5  # or whatever threshold you want
+    mask = capacity >= cutoff_mah
+    capacity = capacity[mask]
+    voltage = voltage[mask]
 
     # Find cutoff point
     i = find_cutoff(capacity, voltage)
@@ -94,7 +112,7 @@ def fit_model(capacity, voltage, filename,downsample_rate=10):
         x_exp,
         y_exp_residual,
         p0=[-0.01, 0.05],
-        bounds = [[-0.5,-0.1],[0,0.1]],  
+        bounds = [[-0.5,0],[0,0.1]],  
         maxfev=5000             
     )
     c,d = params_exp
@@ -137,9 +155,9 @@ for file in filelist:
 plt.xlabel("Capacity (mAh)")
 plt.ylabel("Voltage (V)")
 plt.title("Voltage vs Capacity (Predicted Curve)")
-# plt.xlim(0,500)
-# plt.ylim(0,1)
+plt.xlim(0,200)
+plt.ylim(0.5,1)
 plt.grid(True)
-plt.legend()
+# plt.legend()
 plt.tight_layout()
 plt.show()
