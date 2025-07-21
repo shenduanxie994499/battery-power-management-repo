@@ -8,6 +8,9 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.cross_decomposition import PLSRegression
 from scipy.optimize import curve_fit
+from scipy.spatial.distance import mahalanobis
+import scipy.stats as stats
+from sklearn.ensemble import RandomForestRegressor
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 data_dir = "./smoothed_normalized_data"
@@ -54,8 +57,7 @@ def find_cutoff(capacity, voltage, scan_start_frac=0.35, negative_run=10):
 def average_current(on_current, on_time, off_current, off_time):
     return (on_current * on_time + off_current * off_time) / (on_time + off_time)
 
-def linear(x,a,b):
-    return a * x + b
+
 
 #fit a polynomial fit to the cropped voltage discharge curve and write it into a dictionary
 def fit_model(capacity, voltage, filename, downsample_rate=10):
@@ -77,11 +79,15 @@ def fit_model(capacity, voltage, filename, downsample_rate=10):
 
     # Find cutoff point
     i = find_cutoff(capacity, voltage)
+    plt.scatter(capacity[i], voltage[i], color='red', s=20, zorder=5)
 
     x_lin = capacity[:i]
     y_lin = voltage[:i]
     x_exp = capacity[i:]
     y_exp = voltage[i:]
+
+    def linear(x,a,b):
+        return a * x + b
 
     params_lin, _ = curve_fit(linear,x_lin,y_lin)
     a,b = params_lin
@@ -163,7 +169,9 @@ Y = df[[col for col in df.columns if col.startswith("coef_")] + ["x0"]]
 
 X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2)
 
-model = PLSRegression(n_components=2)
+# model = PLSRegression(n_components=2)
+# model.fit(X_train, Y_train)
+model = RandomForestRegressor(n_estimators=100)
 model.fit(X_train, Y_train)
 
 DC = 0.2
@@ -210,3 +218,62 @@ plt.show()
 
 score = model.score(X_test, Y_test)
 print(f"R² score on test set: {score:.3f}")
+
+# T_train = model.transform(X_train)
+
+# # Mean and covariance in score space
+# T_mean = np.mean(T_train, axis=0)
+# T_cov = np.cov(T_train, rowvar=False)
+# T_cov_inv = np.linalg.inv(T_cov)
+
+# # Hotelling's T² for each training sample
+# T2_scores = [mahalanobis(t, T_mean, T_cov_inv)**2 for t in T_train]
+# threshold = stats.chi2.ppf(0.95, df=model.n_components)
+# outlier_indices = np.where(np.array(T2_scores) > threshold)[0]
+
+
+# X_train = X_train.reset_index(drop=True)
+# outlier_params = X_train.loc[outlier_indices]
+
+
+# print("Training outliers based on T²:")
+# for _, row in outlier_params.iterrows():
+#     print(f"DC={row['DC']:.2f}, I={row['I (mA)']:.1f}, T={row['T (ms)']}")
+
+#     plt.figure(figsize=(10, 5))
+# bars = plt.bar(range(len(T2_scores)), T2_scores, color='skyblue')
+# plt.axhline(threshold, color='red', linestyle='--', label=f"T² threshold ({threshold:.2f})")
+
+
+# for idx in outlier_indices:
+#     bars[idx].set_color('orange')
+#     label = f"DC={X_train.iloc[idx]['DC']:.2f}, I={X_train.iloc[idx]['I (mA)']:.0f}, T={X_train.iloc[idx]['T (ms)']:.0f}"
+#     plt.text(idx, T2_scores[idx] + 0.5, label, rotation=90, ha='center', va='bottom', fontsize=7)
+
+# plt.xlabel("Training Sample Index")
+# plt.ylabel("Hotelling's T²")
+# plt.title("Hotelling’s T² on Training Data")
+# plt.legend()
+# plt.tight_layout()
+# plt.grid(True)
+# plt.show()
+
+
+# # Get X reconstruction using scores and X loadings
+# X_hat = np.dot(T_train, model.x_loadings_.T)
+
+# # Compute residuals
+# X_residual = X_train.to_numpy() - X_hat
+
+# Q_residuals = np.sum(X_residual**2, axis=1)
+
+# plt.figure(figsize=(10, 5))
+# bars = plt.bar(range(len(Q_residuals)), Q_residuals, color='lightgray')
+
+# plt.xlabel("Training Sample Index")
+# plt.ylabel("Q-residual (SPE)")
+# plt.title("Q-Residuals on Training Data")
+# plt.legend()
+# plt.tight_layout()
+# plt.grid(True)
+# plt.show()
