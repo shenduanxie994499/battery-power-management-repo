@@ -8,6 +8,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.cross_decomposition import PLSRegression
 from scipy.optimize import curve_fit
+from sklearn.metrics import mean_squared_error
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 data_dir = "./smoothed_normalized_data"
@@ -22,8 +23,22 @@ filelist = [f for f in os.listdir(data_dir) if f.endswith('.csv') and f not in b
 
 #filelist = ['20.0mA1msec-0.2mA4msec.csv']
 
+def capacity_to_time(capacity, voltage, target_voltage=0.8, min_cap=10):
+    voltage = np.array(voltage)
+    capacity = np.array(capacity)
 
+    valid = capacity >= min_cap
+    voltage = voltage[valid]
+    capacity = capacity[valid]
 
+    for i in range(1, len(voltage)):
+        if voltage[i-1] > target_voltage and voltage[i] <= target_voltage:
+            cap_cross = np.interp(target_voltage,
+                                  [voltage[i-1], voltage[i]],
+                                  [capacity[i-1], capacity[i]])
+            return cap_cross
+
+    return None
 
 # extracts parameters from filename
 def extract_parameters(file_name):
@@ -102,6 +117,7 @@ def fit_model(capacity, voltage, filename, downsample_rate=10):
     y_lin = res1[i:j]
     x1 = x_lin[0]
 
+
     def linear(x, a):
         return a * (x - x1)
 
@@ -119,6 +135,7 @@ def fit_model(capacity, voltage, filename, downsample_rate=10):
 
     params2, _ = curve_fit(exp2, x_exp2, y_exp2, p0=[-0.1, 0.05])
     c2, d2 = params2
+
 
     # Preallocate final array
     full_fit = np.zeros_like(capacity)
@@ -161,7 +178,7 @@ results = []
 for file in filelist:
     file_path = os.path.join(data_dir, file)
 
-    capacity_range = []
+    capacity_arr = []
     voltage_pred = []
 
     with open(file_path, 'r') as f:
@@ -173,12 +190,12 @@ for file in filelist:
             try:
                 c = float(row[0])
                 v = float(row[1])
-                capacity_range.append(c)
+                capacity_arr.append(c)
                 voltage_pred.append(v)
             except:
                 continue
 
-    result = fit_model(capacity_range, voltage_pred, file)
+    result = fit_model(capacity_arr, voltage_pred, file)
     results.append(result)
 
 plt.xlabel("Capacity (mAh)")
@@ -202,63 +219,112 @@ X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2)
 model = PLSRegression(n_components=2)
 model.fit(X_train, Y_train)
 
-DC = 0.2
-I = 30
-T = 10
 
-new_input = [[0.4, 5, 5]]  # example: DC = 0.4, I = 30 mA, T = 10 ms
-predicted_coeffs = model.predict(new_input)[0]
-c1,d1,v0,a,c2,d2,x1,x2 = predicted_coeffs
-c2 = -abs(c2)
+time_errors = []
+actual_times = []
+predicted_times = []
+for file in filelist:
+    file_path = os.path.join(data_dir, file)
 
-capacity_range = np.linspace(0, 500, 200)
-voltage_pred = np.zeros_like(capacity_range)
+    capacity = []
+    voltage = []
 
-# Define exp1
-def exp1(x): return v0 + c1 * (np.exp(d1 * x) - 1)
+    with open(file_path, 'r') as f:
+        reader = csv.reader(f)
+        next(reader)
+        for row in reader:
+            if not row or len(row) < 2:
+                continue
+            try:
+                c = float(row[0])
+                v = float(row[1])
+                capacity.append(c)
+                voltage.append(v)
+            except:
+                continue
 
-# Define linear residual
-def lin(x): return a * (x - x1)
+    I1, T1, I2, T2, _, _= extract_parameters(file)
+    DC = T1 / (T1 + T2)
+    T = T1 + T2
 
-# Define exp2
-def exp2(x): return c2 * (np.exp(d2 * (x - x2)) - 1)
+    # === True cutoff time ===
+    cap_actual_27 = capacity_to_time(capacity, voltage)
+    
+    if cap_actual_27 is None:
+        print(f"{file}: Actual curve didn't reach 0.8")
+        continue
+    I_avg = average_current(I1, T1, I2, T2)
+    t_actual = (cap_actual_27 / I_avg) 
 
-# Split into 3 regions
-region1 = capacity_range < x1
-region2 = (capacity_range >= x1) & (capacity_range < x2)
-region3 = capacity_range >= x2
+    # === Predict coefficients ===
+    input_features = pd.DataFrame([[DC, I1, T]], columns=["DC", "I (mA)", "T (ms)"])
+    predicted_coeffs = model.predict(input_features)[0]
+    c1,d1,v0,a,c2,d2,x1,x2 = predicted_coeffs
+    c2 = -abs(c2)
 
-voltage_pred[region1] = exp1(capacity_range[region1])
-voltage_pred[region2] = exp1(capacity_range[region2]) + lin(capacity_range[region2])
-voltage_pred[region3] = exp1(capacity_range[region3]) + lin(capacity_range[region3]) + exp2(capacity_range[region3])
+    # === Generate predicted curve ===
+    capacity_arr = np.linspace(0, 500, 200)
+    voltage_pred = np.zeros_like(capacity_arr)
 
-# voltage_pred = np.zeros_like(capacity_range)
-# voltage_pred[:split_index] = linear_eval(capacity_range[:split_index])
-# voltage_pred[split_index:] = linear_eval(capacity_range[split_index:]) + exponential_eval(capacity_range[split_index:])
+    # Define exp1
+    def exp1(x): return v0 + c1 * (np.exp(d1 * x) - 1)
 
-print(
-    f"DC: {DC}, I: {I}, T: {T} | "
-    f"split at x1={x1:.2f}, x2={x2:.2f} | "
-    f"c1={c1:.4f}, d1={d1:.4f}, v0={v0:.4f}, "
-    f"a={a:.4f}, c2={c2:.4f}, d2={d2:.4f}"
-)
+    # Define linear residual
+    def lin(x): return a * (x - x1)
 
-valid_mask = voltage_pred > 0
-capacity_range = capacity_range[valid_mask]
-voltage_pred = voltage_pred[valid_mask]
+    # Define exp2
+    def exp2(x): return c2 * (np.exp(d2 * (x - x2)) - 1)
 
-# Plot the predicted curve
-plt.figure()
-plt.plot(capacity_range, voltage_pred, label='Predicted Voltage Curve')
-plt.xlabel("Capacity (mAh)")
+    region1 = capacity_arr < x1
+    region2 = (capacity_arr >= x1) & (capacity_arr < x2)
+    region3 = capacity_arr >= x2
 
-plt.ylabel("Voltage (V)")
-plt.ylim(0,1)
-plt.title("Voltage vs Capacity (Predicted Curve)")
-plt.grid(True)
-plt.legend()
-plt.tight_layout()
-plt.show()
+    voltage_pred[region1] = exp1(capacity_arr[region1])
+    voltage_pred[region2] = exp1(capacity_arr[region2]) + lin(capacity_arr[region2])
+    voltage_pred[region3] = exp1(capacity_arr[region3]) + lin(capacity_arr[region3]) + exp2(capacity_arr[region3])
 
-# score = model.score(X_test, Y_test)
-# print(f"R² score on test set: {score:.3f}")
+    valid_mask = voltage_pred > 0
+    capacity_arr = capacity_arr[valid_mask]
+    voltage_pred = voltage_pred[valid_mask]
+
+    plt.figure(figsize=(8, 4))
+    plt.plot(capacity_arr, voltage_pred, label='Predicted', linewidth=2)
+    plt.plot(capacity, voltage, label='Actual', linestyle='--', alpha=0.7)
+    plt.title(f"{file} — Voltage vs Capacity")
+    plt.xlabel("Capacity (mAh)")
+    plt.ylabel("Voltage (V)")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+    cap_pred_27 = capacity_to_time(capacity_arr, voltage_pred)
+    if cap_pred_27 is None:
+        print(f"{file}: Predicted curve didn't reach 0.8")
+        continue
+
+    t_pred = (cap_pred_27 / I_avg) 
+    actual_times.append(t_actual)
+    predicted_times.append(t_pred)
+    
+    error = abs(t_actual - t_pred)
+    time_errors.append(error)
+
+    print(f"{file} | t_actual={t_actual:.2f}hr | t_pred={t_pred:.2f}hr | error={error:.2f}hr")
+
+avg_error = np.mean(time_errors)
+print(f"\nAverage absolute time error: {avg_error:.2f}hr")
+
+mse = mean_squared_error(actual_times, predicted_times)
+print(f"\nMean Squared Error: {mse:.4f} hr²")
+
+rmse = np.sqrt(mse)
+print(f"\nRoot Mean Squared Error: {rmse:.4f} hr")
+
+
+
+
+
+
+
+
