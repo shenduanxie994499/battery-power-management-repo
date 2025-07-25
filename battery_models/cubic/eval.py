@@ -93,7 +93,7 @@ def fit_model(capacity, voltage, filename,downsample_rate=10):
     capacity = np.array(capacity)
     voltage = np.array(voltage)
 
-    coeffs = np.polyfit(capacity, voltage, 3)  # degree 3 for cubic
+    coeffs = np.polyfit(capacity, voltage, 3)
     a, b, c, d = coeffs
 
     print(f"{filename} | a={a:.4f}, b={b:.4f}, c={c:.4e}, d={d:.4e}")

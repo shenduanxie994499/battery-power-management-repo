@@ -67,7 +67,7 @@ def find_cutoff2(capacity, voltage, scan_start_frac=0.35, negative_run=10):
 def average_current(on_current, on_time, off_current, off_time):
     return (on_current * on_time + off_current * off_time) / (on_time + off_time)
 
-#fit a polynomial fit to the cropped voltage discharge curve and write it into a dictionary
+#fit a threepart fit to the cropped voltage discharge curve and write it into a dictionary
 def fit_model(capacity, voltage, filename, downsample_rate=10):
     I1, T1, I2, T2, _, _ = extract_parameters(filename)
     DC = T1 / (T1 + T2)

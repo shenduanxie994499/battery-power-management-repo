@@ -60,7 +60,7 @@ def average_current(on_current, on_time, off_current, off_time):
 def exponential(x, a, b, c):
     return a * (np.exp(b * x)) + c
 
-#fit a polynomial fit to the cropped voltage discharge curve and write it into a dictionary
+#fit an exponential fit to the cropped voltage discharge curve and write it into a dictionary
 def fit_model(capacity, voltage, filename,downsample_rate=10):
     I1, T1, I2, T2, _, _ = extract_parameters(filename)
     DC = T1 / (T1 + T2)

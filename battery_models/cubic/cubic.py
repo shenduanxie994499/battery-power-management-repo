@@ -1,3 +1,4 @@
+# fits the data with a cubic
 import csv
 import os
 import matplotlib.pyplot as plt
@@ -68,10 +69,7 @@ def fit_model(capacity, voltage, filename,downsample_rate=10):
     capacity = np.array(capacity)
     voltage = np.array(voltage)
 
-    # Smooth voltage before trimming
-    voltage = savgol_filter(voltage, window_length=1551, polyorder=3)
-
-    coeffs = np.polyfit(capacity, voltage, 3)  # degree 3 for cubic
+    coeffs = np.polyfit(capacity, voltage, 3) 
     a, b, c, d = coeffs
 
     full_fit = np.polyval(coeffs, capacity)
