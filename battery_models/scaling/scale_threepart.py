@@ -89,7 +89,7 @@ def fit_model(capacity, voltage, filename, downsample_rate=10):
     def exp1(x, c, d, v0):
         return v0 + c * (np.exp(d * x) - 1)
 
-    params1, _ = curve_fit(exp1, x_exp1, y_exp1, p0=[0.5, -12, 2.9])
+    params1, _ = curve_fit(exp1, x_exp1, y_exp1, p0=[0.5, -12, 3.2])
     c1, d1, v0 = params1
     res1 = voltage - exp1(capacity, c1, d1, v0)
 
@@ -137,9 +137,10 @@ def fit_model(capacity, voltage, filename, downsample_rate=10):
 
     # plt.plot(capacity, voltage, alpha=0.5, label=f"Data ({filename})")
     # plt.plot(capacity, full_fit, label=f"Fit ({filename})", linewidth=2)
-
-    sod = capacity / np.max(capacity)
-    return full_fit,sod,voltage
+    qmax = np.max(capacity)
+    sod = capacity / qmax
+    
+    return full_fit,sod,voltage,qmax
 
 plt.figure()
 
@@ -170,8 +171,14 @@ mask = voltage >= 2.4
 capacity = capacity[mask]
 voltage = voltage[mask]
 
-vfit,sod,downsampled_voltage = fit_model(capacity, voltage, fname)
+vfit,sod,downsampled_voltage, qmax = fit_model(capacity, voltage, fname)
 
+ref_df = pd.DataFrame({
+    "sod": sod,
+    "fit": vfit
+})
+
+ref_df.to_csv("reference_curve.csv", index=False)
 
 plt.plot(sod, downsampled_voltage, alpha=0.5, label=f"Data")
 plt.plot(sod, vfit, label=f"Fit", linewidth=2)
@@ -182,12 +189,14 @@ plt.title("Voltage–Capacity Curves")
 plt.grid(True)
 plt.show()
 
-files_above_cutoff = []
 cutoff = 2.4
+result = []
+output_dir = "./processed_data_sod"
 
 for fname in filelist:
     filepath = os.path.join(data_dir, fname)
-    voltages = []
+    voltage = []
+    capacity = []
 
     with open(filepath, 'r') as f:
         reader = csv.reader(f)
@@ -196,12 +205,45 @@ for fname in filelist:
             if not row or len(row) < 2:
                 continue
             try:
-                v = float(row[1])
-                voltages.append(v)
+                capacity.append(float(row[0]))
+                voltage.append(float(row[1]))
             except:
                 continue
 
-    if len(voltages) > 0 and min(voltages) >= cutoff:
-        files_above_cutoff.append(fname)
+    if voltage[-1] <= cutoff:
+        voltage = np.array(voltage)
+        capacity = np.array(capacity)
+
+        mask = (voltage >= cutoff)
+        capacity = capacity[mask]
+        voltage = voltage[mask]
+
+        sod = capacity/qmax
+        scale_factor = 1/sod[-1]
+
+        I1, T1, I2, T2, _, _ = extract_parameters(fname)
+        avg_I = average_current(I1, T1, I2, T2)
+
+        result.append((fname, avg_I, scale_factor))
+
+        outpath = os.path.join(output_dir, fname)
+        with open(outpath, 'w', newline='') as f_out:
+            writer = csv.writer(f_out)
+            writer.writerow(["sod", "voltage"])
+            for s, v in zip(sod, voltage):
+                writer.writerow([s, v])
 
 
+df_all = pd.DataFrame(result, columns=["filename", "average_current", "scale_factor"])
+
+df_all[["filename", "scale_factor"]].to_csv("scalefactors.csv", index=False)
+
+regression_df = df_all[["average_current", "scale_factor"]]
+
+
+plt.scatter(regression_df["average_current"], regression_df["scale_factor"])
+plt.xlabel("Average Current (mA)")
+plt.ylabel("Scale Factor")
+plt.title("Current vs Scale Factor")
+plt.grid(True)
+plt.show()
