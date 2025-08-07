@@ -240,6 +240,20 @@ df_all[["filename", "scale_factor"]].to_csv("scalefactors.csv", index=False)
 
 regression_df = df_all[["average_current", "scale_factor"]]
 
+x = regression_df["average_current"]
+y = regression_df["scale_factor"]
+
+m, b = np.polyfit(x, y, 1)
+regression_result = pd.DataFrame({
+    "slope": [m],
+    "intercept": [b]
+})
+regression_result.to_csv("scale_regression_coefficients.csv", index=False)
+
+x_fit = np.linspace(np.min(x), np.max(x), 100)
+y_fit = m * x_fit + b
+
+plt.plot(x_fit, y_fit, color="red", label=f"Fit: y = {m:.4f}x + {b:.4f}")
 
 plt.scatter(regression_df["average_current"], regression_df["scale_factor"])
 plt.xlabel("Average Current (mA)")

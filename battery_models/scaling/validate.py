@@ -73,14 +73,19 @@ for idx, row in scale_df.iterrows():
     sod = np.array(sod)
     voltage = np.array(voltage)
 
+    I1,T1,I2,T2,_,_ = extract_parameters(fname)
+    Iavg = average_current(I1,T1,I2,T2)
+
     # Interpolate scaled reference voltage
+    reg_df = pd.read_csv("scale_regression_coefficients.csv")
+    m = reg_df["slope"].values[0]
+    b = reg_df["intercept"].values[0]
+    scale_factor = m* Iavg + b
+
+
     scaled_sod = ref_sod / scale_factor
     interp_func = interp1d(scaled_sod, ref_voltage, bounds_error=False, fill_value="extrapolate")
     predicted_voltage = interp_func(sod)
-
-
-    I1,T1,I2,T2,_,_ = extract_parameters(fname)
-    Iavg = average_current(I1,T1,I2,T2)
 
     # Plot comparison
     plt.figure(figsize=(8, 5))
